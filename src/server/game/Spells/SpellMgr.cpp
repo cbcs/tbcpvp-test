@@ -3080,6 +3080,19 @@ void SpellMgr::LoadSpellCustomAttr()
         case 30834: // Infernal Relay
             spellInfo->AttributesEx2 |= SPELL_ATTR_EX2_IGNORE_LOS;
             break;
+        // Explosive Trap - fix initial dmg and proc
+        case 13812: // rank 1
+        case 14314: // rank 2
+        case 14315: // rank 3
+        case 27026: // rank 4
+            spellInfo->EffectImplicitTargetA[0] = TARGET_UNIT_TARGET_ENEMY;
+            break;
+        // Frost Trap & Snake Trap - fix proc
+        case 13810:
+        case 45145:
+            spellInfo->Effect[2] = SPELL_EFFECT_DUMMY;
+            spellInfo->EffectImplicitTargetA[2] = TARGET_UNIT_TARGET_ENEMY;
+            break;
         default:
             break;
         }
