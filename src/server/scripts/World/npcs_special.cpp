@@ -1296,9 +1296,9 @@ CreatureAI* GetAI_npc_winter_reveler(Creature* creature)
 
 struct npc_snake_trap_serpentsAI : public ScriptedAI
 {
-    npc_snake_trap_serpentsAI(Creature *c) : ScriptedAI(c) {}
+    npc_snake_trap_serpentsAI(Creature *c) : ScriptedAI(c), SpellTimer(0) {}
 
-    uint32 SpellTimer;
+    int32 SpellTimer;
     Unit *Owner;
     bool IsViper;
 
@@ -1308,7 +1308,7 @@ struct npc_snake_trap_serpentsAI : public ScriptedAI
     {
         Owner = me->GetOwner();
 
-        if (!me->isPet() || !Owner)
+        if (!Owner)
             return;
 
         CreatureTemplate const* Info = me->GetCreatureTemplate();
@@ -1317,30 +1317,12 @@ struct npc_snake_trap_serpentsAI : public ScriptedAI
         uint32 delta = (rand() % 7) * 100;
         me->SetStatFloatValue(UNIT_FIELD_BASEATTACKTIME, Info->baseattacktime + delta);
         me->SetStatFloatValue(UNIT_FIELD_RANGED_ATTACK_POWER , Info->attackpower);
-    }
 
-    //Redefined for random target selection:
-    void MoveInLineOfSight(Unit *who)
-    {
-        if (!me->isPet() || !Owner)
-            return;
-
-        if (!me->getVictim() && who->isTargetableForAttack() && (me->IsHostileTo(who)) && who->isInAccessiblePlaceFor (me) && Owner->IsHostileTo(who))//don't attack not-pvp-flaged
+        if (Unit* attacker = Owner->getAttackerForHelper())
         {
-            if (me->GetDistanceZ(who) > CREATURE_Z_ATTACK_RANGE)
-                return;
-
-            float attackRadius = me->GetAttackDistance(who);
-            if (me->IsWithinDistInMap(who, attackRadius) && me->IsWithinLOSInMap(who))
-            {
-                if (!(rand() % 5))
-                {
-                    me->setAttackTimer(BASE_ATTACK, (rand() % 10) * 100);
-                    SpellTimer = (rand() % 10) * 100;
-                    AttackStart(who);
-                }
-            }
-        }
+            me->SetInCombatWith(attacker);
+            AttackStart(attacker);
+        }   
     }
 
     void UpdateAI(const uint32 diff)
@@ -1348,23 +1330,18 @@ struct npc_snake_trap_serpentsAI : public ScriptedAI
         if (!Owner)
             return;
 
-        //Follow if not in combat
-        if (!me->hasUnitState(UNIT_STAT_FOLLOW)&& !me->isInCombat())
-        {
-            me->GetMotionMaster()->Clear();
-            me->GetMotionMaster()->MoveFollow(Owner, PET_FOLLOW_DIST, PET_FOLLOW_ANGLE);
-        }
-
-        //No victim -> get new from owner (need this because MoveInLineOfSight won't work while following -> corebug)
         if (!me->getVictim())
         {
-            if (me->isInCombat())
-                DoStopAttack();
 
-            if (Owner->getAttackerForHelper())
+         if (Owner->getAttackerForHelper())
+         {
                 AttackStart(Owner->getAttackerForHelper());
-
-            return;
+         }
+         else if (!me->hasUnitState(UNIT_STAT_FOLLOW))
+         {
+                me->GetMotionMaster()->Clear();
+                me->GetMotionMaster()->MoveFollow(Owner,PET_FOLLOW_DIST,PET_FOLLOW_ANGLE);
+         }
         }
 
         if (SpellTimer <= diff)
@@ -1391,7 +1368,9 @@ struct npc_snake_trap_serpentsAI : public ScriptedAI
                 SpellTimer = VENOMOUS_SNAKE_TIMER + (rand() %5)*100;
             }
         } else SpellTimer -= diff;
+        
         DoMeleeAttackIfReady();
+        
     }
 };
 
